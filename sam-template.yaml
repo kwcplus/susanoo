@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: POST を受けたら電話を輪番発信
+
+Resources:
+  SusanooFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: susanoo-by-kwcplus
+      Handler: main.handler
+      Runtime: python3.13
+      CodeUri: app/
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          SUSANOO_URL: ${SUSANOO_URL}
+          VONAGE_APPLICATION_ID: ${VONAGE_APPLICATION_ID}
+          VONAGE_PRIVATE_KEY: ${VONAGE_PRIVATE_KEY}
+          VONAGE_NUMBER: ${VONAGE_NUMBER}
+          DYNAMODB_TABLE_NAME: ${DYNAMODB_TABLE_NAME}
+          DYNAMODB_REGION: ${DYNAMODB_REGION}
+      Architectures:
+        - x86_64
+      FunctionUrlConfig:
+        AuthType: NONE
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - dynamodb:CreateTable
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource: arn:aws:dynamodb:${DYNAMODB_REGION}:${AWS_ACCOUNT_ID}:table/${DYNAMODB_TABLE_NAME}

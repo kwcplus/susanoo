@@ -2,14 +2,14 @@
 
 ## Susanoo とは
 
-- Susanoo は curl や Zabbix、Mackerel から POST を受けると電話通知（オンコール）
+- Susanoo は curl や Zabbix、Mackerel から POST を受けると電話通知（オンコール）するシステム
   - ランダムな輪番架電（ラウンドロビン）に対応
   - 留守番電話の場合は次の電話番号に自動架電
-- Susanoo は FastAPI による Web サーバ。Lambda でも動作
+- Susanoo は FastAPI による Web サーバ。Lambda でも動作可能
 
 ## 使い方
 
-1. Susanoo は発信先の電話番号や、電話で流すメッセージを受け取ると、指定電話番号に架電
+1. Susanoo は発信先の電話番号や、電話で流すメッセージを POST で受け取ると、指定電話番号に架電
 1. 受話しない（呼び出しに応じない、着信拒否、通話中含む）と次の人に自動架電
 1. 受話したら 1 を押すとメッセージが流れて終了
     - 1 以外を押す、5 秒以上押さない（留守番電話）と次の人に自動架電
@@ -17,7 +17,7 @@
 | パラメータ | デフォルト | 説明 |
 | --- | --- | --- |
 | to | | 必須。発信先電話番号。カンマ区切りで複数指定可能<br>Ex. to=060-0000-0000,817000000000 |
-| body | | 必須。通知内容。誤読する場合はカタカナ表記 |
+| text | | 必須。通知内容。誤読する場合はカタカナ表記 |
 | loop | 3 | 繰り返し架電回数。最大 10 |
 | round_robin | 1 | 1 の場合は to をシャッフルして架電。0 は指定した順番で架電 |
 
@@ -26,16 +26,16 @@
 ```shell
 # curl 7.82.0+
 curl -X POST https://your-lambda-url.on.aws \
-  --json '{"to": "090-0000-0000,08000000000", "body": "Zabbix を確認してください"}'
+  --json '{"to": "090-0000-0000,08000000000", "text": "Zabbix を確認してください"}'
 
 # curl < 7.82.0
 curl -X POST https://your-lambda-url.on.aws \
   -H "Content-Type: application/json" \
-  -d '{"to": "03-0000-0000", "body": "ファイル foo.js でエラー xxx が発生"}'
+  -d '{"to": "03-0000-0000", "text": "ファイル foo.js でエラー xxx が発生"}'
 
 # URL パラメータ指定可能
-BODY=$(node -p 'encodeURIComponent("curl は urlencode しないと 日本語が使えません")')
-curl -X POST "https://your-lambda-url.on.aws/?to=815000000000,050-0000-0000&body=$BODY&loop=10&round_robin=0"
+TEXT=$(node -p 'encodeURIComponent("curl は urlencode しないと 日本語が使えません")')
+curl -X POST "https://your-lambda-url.on.aws/?to=815000000000,050-0000-0000&text=$TEXT&loop=10&round_robin=0"
 ```
 
 ### httpie での利用
@@ -43,12 +43,12 @@ curl -X POST "https://your-lambda-url.on.aws/?to=815000000000,050-0000-0000&body
 ```shell
 http POST your-lambda-url.on.aws \
   to="815000000000,050-0000-0000" \
-  body="Mackerel を確認してください" \
+  text="Mackerel を確認してください" \
   loop=2 \
   round_robin=0
 
 # URL パラメータ指定可能
-http POST "https://your-lambda-url.on.aws/?to=815000000000,050-0000-0000&loop=2&round_robin=0&body=Webサーバ 1 2 3 で障害が発生しました"
+http POST "https://your-lambda-url.on.aws/?to=815000000000,050-0000-0000&loop=2&round_robin=0&text=Webサーバ 1 2 3 で障害が発生しました"
 ```
 
 ### Mackerel 設定例
@@ -62,7 +62,7 @@ http POST "https://your-lambda-url.on.aws/?to=815000000000,050-0000-0000&loop=2&
 ### Zabbix 7.2 設定例
 
 1. 左メニューの「Alerts」
-1. 「Media TYpes」を選択
+1. 「Media Types」を選択
 1. 画面右上の「Create media type」を選択
 1. 「Name」に「Susanoo」と入力
 1. 「Type」を「Webhook」に変更
@@ -77,7 +77,7 @@ try {
     const url = "https://your.lambda-url.ap-northeast-1.on.aws";
     const payload = JSON.stringify({
         to: "03-0000-0000,06-0000-00000",
-        body: "Zabbix を確認してください"
+        text: "Zabbix を確認してください"
     });
 
     const request = new HttpRequest();
@@ -123,8 +123,8 @@ catch (error) {
 - 外部公開サーバ
   - 試用であれば ngrok
 - Vonage の電話番号
-  - [Vonage アカウントの作成](https://zenn.dev/kwcplus/articles/create-vonage-account)
-  - [Vonage で電話番号の取得](https://zenn.dev/kwcplus/articles/buynumber-vonage)
+  - [アカウントの作成](https://zenn.dev/kwcplus/articles/create-vonage-account)
+  - [電話番号の取得](https://zenn.dev/kwcplus/articles/buynumber-vonage)
 - DynamoDB
 - Python
   - uv
@@ -135,7 +135,7 @@ catch (error) {
 Vonage に慣れているのであれば下記手順で Susanoo は起動します。
 
 ```shell
-git clone git@github:kwcplus/susanoo.git
+git clone git@github.com:kwcplus/susanoo.git
 cd susanoo
 cp .env.example .env
 $EDITOR .env
@@ -157,6 +157,10 @@ direnv allow
 
 外部公開サーバを指定。Vonage から電話の応答有無、入力した番号が送られます。
 
+```shell
+SUSANOO_URL=https://example.com
+```
+
 #### VONAGE_APPLICATION_ID と VONAGE_PRIVATE_KEY
 
 Vonage ダッシュボードのアプリケーションから取得可能。取得手順は下記参照。
@@ -166,7 +170,8 @@ Vonage ダッシュボードのアプリケーションから取得可能。取�
 ```VONAGE_PRIVATE_KEY``` は Lambda の環境変数として登録しやすいように、秘密鍵を base64 にして一行にします。
 
 ```shell
-base64 < private.key | tr -d '\n'
+# base64 < private.key | tr -d '\n'
+VONAGE_PRIVATE_KEY=LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...
 ```
 
 #### VONAGE_NUMBER
@@ -178,7 +183,8 @@ Vonage で取得した電話番号を設定。取得手順は下記を参照し�
 電話番号は E.164/MSISDN 形式にします。電話番号の頭の 0 を[国番号](https://ja.wikipedia.org/wiki/%E5%9B%BD%E9%9A%9B%E9%9B%BB%E8%A9%B1%E7%95%AA%E5%8F%B7%E3%81%AE%E4%B8%80%E8%A6%A7)に置き換えます。
 
 ```text
-050XXXXYYYY → 8150XXXXYYYY
+# 050-XXXX-YYYY
+VONAGE_NUMBER=8150XXXXYYYY
 ```
 
 #### AWS_ACCOUNT_ID
@@ -217,12 +223,8 @@ uv run fastapi run
 ```shell
 http POST localhost:8000 \
   to="070-0000-0000" \
-  body="スサノオのテストです"
+  text="スサノオのテストです"
 ```
-
-こちらでも実行可能です。
-
-<http://localhost:8000/docs>
 
 #### Lambda にデプロイ
 
@@ -265,7 +267,7 @@ $ yes | sam deploy
 ```shell
 http POST $SUSANOO_URL \
   to="080-0000-0000" \
-  body="Lambda のテストです"
+  text="Lambda のテストです"
 ```
 
 Lambda 関数 URL を利用しているため、API Gateway のコストはかかりません。
